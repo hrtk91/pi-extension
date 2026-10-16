@@ -97,7 +97,7 @@ export class BackgroundCompactionState {
         ...(task.summaryStartedAt ? { summaryStartedAt: task.summaryStartedAt } : {}),
         ...(task.summaryCompletedAt ? { summaryCompletedAt: task.summaryCompletedAt } : {}),
         ...(task.summaryDurationMs !== undefined ? { summaryDurationMs: task.summaryDurationMs } : {}),
-        strategy: "background-turn-percent-v1",
+        strategy: "background-agent-turn-percent-v2",
         fromTurn: task.snapshot.fromTurn,
         throughTurn: task.snapshot.throughTurn,
         summarizedThrough: task.snapshot.summarizedThrough,

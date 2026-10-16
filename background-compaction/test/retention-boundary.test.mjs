@@ -65,7 +65,7 @@ test("a fresh one-turn conversation has no prefix while preserving the recent-tu
   assert.equal(summarizeCalls, 0);
 });
 
-test("after turn 80 was summarized, 21 kept turns have no prefix and turn 22 unlocks only turn 81", async () => {
+test("after assistant turn 80 was summarized, 21 kept assistant turns have no prefix and turn 22 unlocks only turn 81", async () => {
   const state = new BackgroundCompactionState();
   const snapshot = (count) => ({
     sessionId: "s", branchId: "b", anchorEntryId: `assistant-${count}`, contextTokens: 900, contextWindow: 1000,
@@ -93,7 +93,7 @@ test("/bgcompact explains no eligible prefix, then starts when a new turn makes 
   for (let number = 1; number <= 21; number++) harness.addTurn(number);
   harness.entries.unshift({
     type: "compaction", id: "prior-compaction", parentId: null, summary: "summary through turn 80",
-    details: { strategy: "background-turn-percent-v1", summarizedThrough: 80 },
+    details: { strategy: "background-agent-turn-percent-v2", summarizedThrough: 80 },
   });
   const summarized = [];
   const gate = new Promise((resolve) => { harness.resolveSummary = resolve; });

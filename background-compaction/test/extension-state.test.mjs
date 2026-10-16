@@ -148,7 +148,7 @@ const registerOnHarness = (h, options = {}) => registerBackgroundCompaction({
   h.handlers.get("turn_end").at(-1)(h.event(), h.ctx);
   assert.equal(state.status, "summarizing");
   assert.equal(statusUpdates.at(-1).key, "background-compaction");
-  assert.match(statusUpdates.at(-1).text, /bgcompact 1–80 · 0s/);
+  assert.match(statusUpdates.at(-1).text, /bgcompact assistant 1–80 · 0s/);
   gate.resolve("ready summary");
   await new Promise((resolve) => setTimeout(resolve, 150));
   assert.equal(state.status, "ready");

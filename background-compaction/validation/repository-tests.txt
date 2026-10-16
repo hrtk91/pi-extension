@@ -1,27 +1,29 @@
-# Repository tests with named retention-boundary regression cases
+# Repository tests with named assistant-turn, retention-boundary, and real-Pi acceptance cases
 $ npm test
-
 
 > test
 > node --test background-compaction/test/*.test.mjs
 
+✔ automatic compaction counts assistant/tool cycles within one long user request (11.014186ms)
+✔ legacy user-turn counters reset while their previous summary remains available (2.634319ms)
 PASS: async snapshot/apply, 50% threshold, 80/20 retention, stale discard, and failure fallback
-✔ background-compaction/test/background-state.test.mjs (55.242141ms)
+✔ background-compaction/test/background-state.test.mjs (59.843129ms)
 PASS: automatic/manual compaction, spinner lifecycle, safe apply/fallback, model preferences/overrides, and debug-only diagnostics
-✔ background-compaction/test/extension-state.test.mjs (522.406608ms)
+✔ background-compaction/test/extension-state.test.mjs (501.776656ms)
+✔ manual and autonomous compaction show progress, safely replace real Pi history, and preserve continuation (3772.345416ms)
 PASS: install/load/uninstall; /bgcompact stays visible while diagnostics require PI_BGCOMPACT_DEBUG=1
-✔ background-compaction/test/pi-extension-load.test.mjs (1304.931704ms)
-✔ a fresh one-turn conversation has no prefix while preserving the recent-turn policy (3.192289ms)
-✔ after turn 80 was summarized, 21 kept turns have no prefix and turn 22 unlocks only turn 81 (5.199114ms)
-✔ /bgcompact explains no eligible prefix, then starts when a new turn makes one eligible (4.851288ms)
-✔ /bgcompact refuses while Pi is busy or before an assistant reply exists (0.7369ms)
+✔ background-compaction/test/pi-extension-load.test.mjs (1379.783216ms)
+✔ a fresh one-turn conversation has no prefix while preserving the recent-turn policy (1.935892ms)
+✔ after assistant turn 80 was summarized, 21 kept assistant turns have no prefix and turn 22 unlocks only turn 81 (6.176ms)
+✔ /bgcompact explains no eligible prefix, then starts when a new turn makes one eligible (5.535021ms)
+✔ /bgcompact refuses while Pi is busy or before an assistant reply exists (0.783508ms)
 PASS: background summary system and initial/update prompts exactly match the installed Pi native compaction prompts
-✔ background-compaction/test/standard-prompt-parity.test.mjs (80.278102ms)
-ℹ tests 8
+✔ background-compaction/test/standard-prompt-parity.test.mjs (81.996015ms)
+ℹ tests 11
 ℹ suites 0
-ℹ pass 8
+ℹ pass 11
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1325.47349
+ℹ duration_ms 13525.120682

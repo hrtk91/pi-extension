@@ -1,11 +1,21 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
 import { buildStandardSummaryPrompt, SUMMARIZATION_SYSTEM_PROMPT } from "../src/background-runtime.mjs";
 
 const piCli = realpathSync(execFileSync("which", ["pi"], { encoding: "utf8" }).trim());
-const piRoot = process.env.PI_CODING_AGENT_PACKAGE_ROOT ?? resolve(dirname(piCli), "../..");
+const piAgentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+const managedVersionPath = join(piAgentDir, "install", "current-version");
+const managedVersion = existsSync(managedVersionPath) ? readFileSync(managedVersionPath, "utf8").trim() : undefined;
+const candidates = [
+  process.env.PI_CODING_AGENT_PACKAGE_ROOT,
+  resolve(dirname(piCli), "../.."),
+  managedVersion && join(piAgentDir, "install", "releases", managedVersion, "node_modules", "@earendil-works", "pi-coding-agent"),
+].filter(Boolean);
+const piRoot = candidates.find((candidate) => existsSync(join(candidate, "dist/core/compaction/compaction.js")));
+assert.ok(piRoot, `could not locate Pi package; checked ${candidates.join(", ")}`);
 const core = join(piRoot, "dist/core/compaction/compaction.js");
 const utils = join(piRoot, "dist/core/compaction/utils.js");
 const compactionSource = readFileSync(core, "utf8");

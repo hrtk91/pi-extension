@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { BackgroundCompactionState } from "./background-state.mjs";
 
-const STRATEGY = "background-turn-percent-v1";
+const STRATEGY = "background-agent-turn-percent-v2";
 const DEFAULTS = { startAtPercent: 50, keepRecentPercent: 20, maxCompactTurns: 80 };
 
 export function getBackgroundCompactionPreferencesPath() {
@@ -73,18 +73,46 @@ export function buildStandardSummaryPrompt(transcript, previousSummary = null) {
 
 function projectedTurns(contextEntries) {
   const turns = [];
+  let pending = [];
   let current;
+  const append = (turn, projected) => {
+    turn.entries.push(projected);
+    turn.messages.push(...(projected.messages ?? []));
+  };
   for (const projected of contextEntries ?? []) {
     const source = projected.sourceEntry;
-    const startsTurn = source?.type === "message" && source.message?.role === "user";
-    if (startsTurn) {
-      current = { id: source.id, firstEntryId: source.id, entries: [], messages: [] };
+    if (source?.type === "compaction" || source?.type === "context_edit") continue;
+    const role = source?.type === "message" ? source.message?.role : undefined;
+    if (role === "user") {
+      current = undefined;
+      pending.push(projected);
+      continue;
+    }
+    if (role === "assistant") {
+      // Each completed assistant response is a planning unit. A preceding user
+      // message belongs to the first response; subsequent tool-loop responses
+      // start at their own assistant entry so a kept boundary never splits a
+      // tool call from its following result.
+      const precedingUser = pending.find((entry) => entry.sourceEntry?.type === "message" && entry.sourceEntry.message?.role === "user");
+      current = {
+        id: source.id,
+        firstEntryId: precedingUser?.sourceEntry.id ?? source.id,
+        entries: [],
+        messages: [],
+      };
+      for (const entry of pending) append(current, entry);
+      pending = [];
+      append(current, projected);
       turns.push(current);
+      continue;
     }
-    if (current) {
-      current.entries.push(projected);
-      current.messages.push(...(projected.messages ?? []));
+    if (role === "toolResult") {
+      if (current) append(current, projected);
+      else if (pending.length) pending.push(projected);
+      continue;
     }
+    if (current) append(current, projected);
+    else if (pending.length) pending.push(projected);
   }
   return turns;
 }
@@ -263,7 +291,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
       }
       const glyph = SPINNER_FRAMES[frame++ % SPINNER_FRAMES.length];
       const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
-      const label = ` bgcompact ${plan.fromTurn}–${plan.throughTurn} · ${elapsedSeconds}s`;
+      const label = ` bgcompact assistant ${plan.fromTurn}–${plan.throughTurn} · ${elapsedSeconds}s`;
       const theme = ctx.ui.theme;
       const text = theme?.fg ? theme.fg("accent", glyph) + theme.fg("dim", label) : `${glyph}${label}`;
       try { spinnerUi?.setStatus(STATUS_KEY, text); } catch { clearSpinner(); }
@@ -390,7 +418,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
   const onBoundary = (event, ctx) => {
     const draft = applyReady(ctx);
     if (draft) {
-      ctx.ui.notify(`background compaction applied through turn ${draft.details.summarizedThrough}; summaryMs=${draft.details.summaryDurationMs ?? 0}; inputTokens=${draft.usage?.input ?? 0}; outputTokens=${draft.usage?.output ?? 0}`, "info");
+      ctx.ui.notify(`background compaction applied through assistant turn ${draft.details.summarizedThrough}; summaryMs=${draft.details.summaryDurationMs ?? 0}; inputTokens=${draft.usage?.input ?? 0}; outputTokens=${draft.usage?.output ?? 0}`, "info");
       return { entries: [draft] };
     }
     const selection = resolveSummaryModel(ctx);
@@ -407,7 +435,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
       state._snapshotForAdapter = result.snapshot;
       const shownInFooter = startSpinner(ctx, result.plan);
       if (!shownInFooter) {
-        ctx.ui.notify(`background compaction started with ${modelReference(snapshot.model)} at ${Math.round(snapshot.contextTokens / snapshot.contextWindow * 100)}%; summarizing turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
+        ctx.ui.notify(`background compaction started with ${modelReference(snapshot.model)} at ${Math.round(snapshot.contextTokens / snapshot.contextWindow * 100)}%; summarizing assistant turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
       }
       watchSummary(ctx);
     }
@@ -470,7 +498,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
       state._snapshotForAdapter = result.snapshot;
       startSpinner(ctx, result.plan);
       const source = args ? " (one-time override)" : "";
-      ctx.ui.notify(`Manual background compaction started with ${modelReference(selection.model)}${source}; summarizing turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
+      ctx.ui.notify(`Manual background compaction started with ${modelReference(selection.model)}${source}; summarizing assistant turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
       watchSummary(ctx);
     },
   });
@@ -528,7 +556,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
         const initial = planCompaction(100, 0, settings);
         const next = planCompaction(180, 80, settings);
         const passed = initial?.throughTurn === 80 && next?.throughTurn === 144;
-        ctx.ui.notify(`rolling compaction scheduler: ${passed ? "PASS" : "FAIL"}; 100 turns→summarize 1-80; 180 turns→81-144; retain 20%`, passed ? "info" : "error");
+        ctx.ui.notify(`rolling compaction scheduler: ${passed ? "PASS" : "FAIL"}; 100 assistant turns→summarize 1-80; 180 assistant turns→81-144; retain 20%`, passed ? "info" : "error");
       },
     });
   }
