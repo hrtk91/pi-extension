@@ -6,7 +6,7 @@ Pi 向けの拡張機能と、動作確認・効果測定の記録をまとめ�
 
 | 拡張機能 | 概要 | 詳細 |
 |---|---|---|
-| [`background-compaction`](background-compaction/) | 会話を続けながら古いターンを非同期で要約します。手動実行は `/bgcompact`。Pi で選択中のモデルを使います。 | [README](background-compaction/README.md) |
+| [`background-compaction`](background-compaction/) | 会話を続けながら古いターンを非同期で要約します。モデルは保存済みの既定値、またはPiで選択中のものを使えます。 | [README](background-compaction/README.md) |
 
 ## テスト
 

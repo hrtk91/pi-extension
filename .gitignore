@@ -21,6 +21,7 @@ Thumbs.db
 
 # Local Pi installs and backups
 backups/
+**/extensions/background-compaction.json
 
 # Raw experiment output is archived outside this repository
 background-compaction/validation/campaigns/

@@ -1,8 +1,64 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { BackgroundCompactionState } from "./background-state.mjs";
 
 const STRATEGY = "background-turn-percent-v1";
 const DEFAULTS = { startAtPercent: 50, keepRecentPercent: 20, maxCompactTurns: 80 };
+
+export function getBackgroundCompactionPreferencesPath() {
+  let agentDir = process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
+  if (/^~[\\/]/.test(agentDir)) agentDir = join(homedir(), agentDir.slice(2));
+  return join(resolve(agentDir), "extensions", "background-compaction.json");
+}
+
+function readPreferredModel(modelConfigPath) {
+  if (!modelConfigPath || !existsSync(modelConfigPath)) return { model: undefined, error: undefined };
+  try {
+    const config = JSON.parse(readFileSync(modelConfigPath, "utf8"));
+    if (config.version !== 1 || (config.defaultModel !== undefined && typeof config.defaultModel !== "string")) {
+      throw new Error("unsupported configuration format");
+    }
+    return { model: config.defaultModel, error: undefined };
+  } catch (error) {
+    return { model: undefined, error: `Could not read ${modelConfigPath}: ${error.message}` };
+  }
+}
+
+function writePreferredModel(modelConfigPath, modelRef) {
+  if (!modelConfigPath) throw new Error("persistent model preferences are not configured");
+  const tempPath = `${modelConfigPath}.tmp-${process.pid}-${randomUUID()}`;
+  mkdirSync(dirname(modelConfigPath), { recursive: true, mode: 0o700 });
+  try {
+    writeFileSync(tempPath, `${JSON.stringify({ version: 1, defaultModel: modelRef }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    renameSync(tempPath, modelConfigPath);
+  } catch (error) {
+    try { unlinkSync(tempPath); } catch { /* No temporary file to clean up. */ }
+    throw error;
+  }
+}
+
+function clearPreferredModel(modelConfigPath) {
+  if (!modelConfigPath) throw new Error("persistent model preferences are not configured");
+  try { unlinkSync(modelConfigPath); } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+}
+
+function modelReference(model) {
+  return `${model.provider}/${model.id}`;
+}
+
+function resolveAvailableModel(reference, ctx) {
+  const models = ctx.modelRegistry?.getAvailable?.() ?? [];
+  const normalized = reference.trim().toLowerCase();
+  const canonicalMatches = models.filter((model) => modelReference(model).toLowerCase() === normalized);
+  const matches = canonicalMatches.length ? canonicalMatches : models.filter((model) => model.id.toLowerCase() === normalized);
+  if (matches.length === 1) return { model: matches[0] };
+  if (matches.length > 1) return { error: `Model name "${reference}" is ambiguous; use provider/model-id` };
+  return { error: `Model "${reference}" is not available or its provider is not authenticated` };
+}
 export const SUMMARIZATION_SYSTEM_PROMPT = `You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.\n\nDo NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.`;
 const SUMMARIZATION_PROMPT = `The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.\n\nUse this EXACT format:\n\n## Goal\n[What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]\n\n## Constraints & Preferences\n- [Any constraints, preferences, or requirements mentioned by user]\n- [Or "(none)" if none were mentioned]\n\n## Progress\n### Done\n- [x] [Completed tasks/changes]\n\n### In Progress\n- [ ] [Current work]\n\n### Blocked\n- [Issues preventing progress, if any]\n\n## Key Decisions\n- **[Decision]**: [Brief rationale]\n\n## Next Steps\n1. [Ordered list of what should happen next]\n\n## Critical Context\n- [Any data, examples, or references needed to continue]\n- [Or "(none)" if not applicable]\n\nKeep each section concise. Preserve exact file paths, function names, and error messages.`;
 const UPDATE_SUMMARIZATION_INSTRUCTIONS = `Update the existing structured summary with new information. RULES:\n- PRESERVE all existing information from the previous summary\n- ADD new progress, decisions, and context from the new messages\n- UPDATE the Progress section: move items from "In Progress" to "Done" when completed\n- UPDATE "Next Steps" based on what was accomplished\n- PRESERVE exact file paths, function names, and error messages\n- If something is no longer relevant, you may remove it\n\nUse this EXACT format:\n\n## Goal\n[Preserve existing goals, add new ones if the task expanded]\n\n## Constraints & Preferences\n- [Preserve existing, add new ones discovered]\n\n## Progress\n### Done\n- [x] [Include previously done items AND newly completed items]\n\n### In Progress\n- [ ] [Current work - update based on progress]\n\n### Blocked\n- [Current blockers - remove if resolved]\n\n## Key Decisions\n- **[Decision]**: [Brief rationale] (preserve all previous, add new)\n\n## Next Steps\n1. [Update based on current state]\n\n## Critical Context\n- [Preserve important context, add new if needed]\n\nKeep each section concise. Preserve exact file paths, function names, and error messages.`;
@@ -110,12 +166,80 @@ function appendStandardFileLists(summary, messages) {
 const STATUS_KEY = "background-compaction";
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-export function registerBackgroundCompaction(pi, { summarizeOverride, serializeMessages, settings = DEFAULTS, debugMode = process.env.PI_BGCOMPACT_DEBUG === "1" } = {}) {
+export function registerBackgroundCompaction(pi, { summarizeOverride, serializeMessages, settings = DEFAULTS, debugMode = process.env.PI_BGCOMPACT_DEBUG === "1", modelConfigPath } = {}) {
   const state = new BackgroundCompactionState();
   let sessionId;
   let activeAbortController;
   let spinnerTimer;
   let spinnerUi;
+  let { model: configuredModelRef, error: modelConfigError } = readPreferredModel(modelConfigPath);
+  let lastModelErrorNotified;
+
+  const modelIsAllowed = (model) => !settings.allowedModels?.length || settings.allowedModels.includes(modelReference(model));
+  const resolveSummaryModel = (ctx, oneShotReference) => {
+    if (oneShotReference) return resolveAvailableModel(oneShotReference, ctx);
+    if (modelConfigError) return { error: modelConfigError };
+    if (configuredModelRef) return resolveAvailableModel(configuredModelRef, ctx);
+    return ctx.model ? { model: ctx.model } : { error: "no active model", silent: true };
+  };
+  const notifyModelError = (ctx, error) => {
+    if (error === lastModelErrorNotified) return;
+    lastModelErrorNotified = error;
+    ctx.ui.notify(`Background compaction model: ${error}`, "error");
+  };
+  const notifyCurrentModelPreference = (ctx) => {
+    if (modelConfigError) {
+      notifyModelError(ctx, modelConfigError);
+    } else if (configuredModelRef) {
+      ctx.ui.notify(`Background compaction default model: ${configuredModelRef}`, "info");
+    } else if (ctx.model) {
+      ctx.ui.notify(`No saved background compaction model; using Pi's selected model (${modelReference(ctx.model)})`, "info");
+    } else {
+      ctx.ui.notify("No saved background compaction model and no active Pi model", "warning");
+    }
+  };
+  const handleModelPreferenceCommand = (args, ctx) => {
+    const [action, ...rest] = args.trim().split(/\s+/).filter(Boolean);
+    if (!action || action === "show") {
+      if (rest.length) ctx.ui.notify("Usage: /bgcompact model [show|set <provider/model-id>|reset]", "warning");
+      else notifyCurrentModelPreference(ctx);
+      return;
+    }
+    if (action === "set" && rest.length === 1) {
+      const resolved = resolveAvailableModel(rest[0], ctx);
+      if (resolved.error) {
+        ctx.ui.notify(`Cannot set background compaction model: ${resolved.error}`, "error");
+        return;
+      }
+      if (!modelIsAllowed(resolved.model)) {
+        ctx.ui.notify(`Cannot set background compaction model: ${modelReference(resolved.model)} is excluded by the configured allowlist`, "error");
+        return;
+      }
+      try {
+        writePreferredModel(modelConfigPath, modelReference(resolved.model));
+        configuredModelRef = modelReference(resolved.model);
+        modelConfigError = undefined;
+        lastModelErrorNotified = undefined;
+        ctx.ui.notify(`Background compaction default model set to ${configuredModelRef}; applies to future summaries`, "info");
+      } catch (error) {
+        ctx.ui.notify(`Could not save background compaction model: ${error.message}`, "error");
+      }
+      return;
+    }
+    if (action === "reset" && rest.length === 0) {
+      try {
+        clearPreferredModel(modelConfigPath);
+        configuredModelRef = undefined;
+        modelConfigError = undefined;
+        lastModelErrorNotified = undefined;
+        ctx.ui.notify("Background compaction model reset; future summaries will use Pi's selected model", "info");
+      } catch (error) {
+        ctx.ui.notify(`Could not reset background compaction model: ${error.message}`, "error");
+      }
+      return;
+    }
+    ctx.ui.notify("Usage: /bgcompact model [show|set <provider/model-id>|reset]", "warning");
+  };
 
   const clearSpinner = () => {
     if (spinnerTimer) clearInterval(spinnerTimer);
@@ -217,7 +341,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
     }
   };
 
-  const snapshotEvent = (event, ctx) => {
+  const snapshotEvent = (event, ctx, model = ctx.model) => {
     const currentSessionId = ctx.sessionManager.getSessionId();
     if (!currentSessionId) return null;
     if (sessionId !== currentSessionId) {
@@ -230,7 +354,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
     activeAbortController = controller;
     return {
       ...snapshot,
-      model: ctx.model,
+      model,
       modelRegistry: ctx.modelRegistry,
       signal: controller.signal,
       abortController: controller,
@@ -269,19 +393,21 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
       ctx.ui.notify(`background compaction applied through turn ${draft.details.summarizedThrough}; summaryMs=${draft.details.summaryDurationMs ?? 0}; inputTokens=${draft.usage?.input ?? 0}; outputTokens=${draft.usage?.output ?? 0}`, "info");
       return { entries: [draft] };
     }
-    const boundarySessionId = ctx.sessionManager.getSessionId();
-    if (settings.allowedModels?.length) {
-      const modelKey = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "";
-      if (!settings.allowedModels.includes(modelKey)) return;
+    const selection = resolveSummaryModel(ctx);
+    if (selection.error) {
+      if (!selection.silent) notifyModelError(ctx, selection.error);
+      return;
     }
-    const snapshot = snapshotEvent(event, ctx);
+    if (!selection.model || !modelIsAllowed(selection.model)) return;
+    lastModelErrorNotified = undefined;
+    const snapshot = snapshotEvent(event, ctx, selection.model);
     if (!snapshot) return;
     const result = state.observe(snapshot, summarize, settings);
     if (result.started) {
       state._snapshotForAdapter = result.snapshot;
       const shownInFooter = startSpinner(ctx, result.plan);
       if (!shownInFooter) {
-        ctx.ui.notify(`background compaction started at ${Math.round(snapshot.contextTokens / snapshot.contextWindow * 100)}%; summarizing turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
+        ctx.ui.notify(`background compaction started with ${modelReference(snapshot.model)} at ${Math.round(snapshot.contextTokens / snapshot.contextWindow * 100)}%; summarizing turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
       }
       watchSummary(ctx);
     }
@@ -295,15 +421,11 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
   });
   pi.on("session_shutdown", () => abortPending("session-shutdown"));
   pi.registerCommand("bgcompact", {
-    description: "Start background compaction now, bypassing the automatic context threshold",
+    description: "手動圧縮: /bgcompact [provider/model-id]。モデル設定: /bgcompact model [show|set <provider/model-id>|reset]",
     handler: async (_args, ctx) => {
-      if (!ctx.model) {
-        ctx.ui.notify("Cannot start background compaction: no active model", "error");
-        return;
-      }
-      const modelKey = `${ctx.model.provider}/${ctx.model.id}`;
-      if (settings.allowedModels?.length && !settings.allowedModels.includes(modelKey)) {
-        ctx.ui.notify(`Background compaction is disabled for ${modelKey}`, "error");
+      const args = String(_args ?? "").trim();
+      if (args === "model" || args.startsWith("model ")) {
+        handleModelPreferenceCommand(args.slice("model".length), ctx);
         return;
       }
       if (state.status === "summarizing" || state.status === "ready") {
@@ -314,6 +436,16 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
         ctx.ui.notify("Wait for the current assistant reply to finish, then retry /bgcompact", "warning");
         return;
       }
+      const selection = resolveSummaryModel(ctx, args || undefined);
+      if (selection.error || !selection.model) {
+        if (selection.error) notifyModelError(ctx, selection.error);
+        else ctx.ui.notify("Cannot start background compaction: no active model", "error");
+        return;
+      }
+      if (!modelIsAllowed(selection.model)) {
+        ctx.ui.notify(`Background compaction is disabled for ${modelReference(selection.model)}`, "error");
+        return;
+      }
       // Rebuild from the session manager instead of relying on an in-memory turn_end
       // event. This also works immediately after restarting or resuming a session.
       const projection = ctx.sessionManager.buildSessionProjection();
@@ -321,7 +453,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
         ctx.ui.notify("There is no completed assistant reply to summarize in this session yet", "warning");
         return;
       }
-      const snapshot = snapshotEvent({ context: { contextEntries: projection.entries } }, ctx);
+      const snapshot = snapshotEvent({ context: { contextEntries: projection.entries } }, ctx, selection.model);
       if (!snapshot) {
         ctx.ui.notify("Cannot use the current conversation for compaction; it may have changed during compaction or context editing", "warning");
         return;
@@ -333,7 +465,8 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
       }
       state._snapshotForAdapter = result.snapshot;
       startSpinner(ctx, result.plan);
-      ctx.ui.notify(`Manual background compaction started; summarizing turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
+      const source = args ? " (one-time override)" : "";
+      ctx.ui.notify(`Manual background compaction started with ${modelReference(selection.model)}${source}; summarizing turns ${result.plan.fromTurn}-${result.plan.throughTurn}`, "info");
       watchSummary(ctx);
     },
   });
@@ -345,14 +478,15 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
       },
     });
     pi.registerCommand("bgcompact-probe", {
-      description: "Exercise the default async summarizer against the selected provider",
+      description: "Exercise the default async summarizer against the effective background model",
       handler: async (_args, ctx) => {
-        if (!ctx.model) {
-          ctx.ui.notify("FAIL: select a model before running the provider probe", "error");
+        const selection = resolveSummaryModel(ctx);
+        if (!selection.model) {
+          ctx.ui.notify(`FAIL: no background model available${selection.error ? `: ${selection.error}` : ""}`, "error");
           return;
         }
-        if (settings.allowedModels?.length && !settings.allowedModels.includes(`${ctx.model.provider}/${ctx.model.id}`)) {
-          ctx.ui.notify(`FAIL: provider probe is disabled for ${ctx.model.provider}/${ctx.model.id}`, "error");
+        if (!modelIsAllowed(selection.model)) {
+          ctx.ui.notify(`FAIL: provider probe is disabled for ${modelReference(selection.model)}`, "error");
           return;
         }
         const probe = new BackgroundCompactionState();
@@ -365,7 +499,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
         const result = probe.observe({
           sessionId: "probe-session", branchId: "probe-branch", anchorEntryId: "probe-assistant-100",
           contextTokens: 500, contextWindow: 1000, turns, summarizedThrough: 0,
-          model: ctx.model, modelRegistry: ctx.modelRegistry, signal: probeController.signal, abortController: probeController,
+          model: selection.model, modelRegistry: ctx.modelRegistry, signal: probeController.signal, abortController: probeController,
         }, summarize, settings);
         if (!result.started) {
           ctx.ui.notify(`FAIL: probe did not start (${result.reason})`, "error");
