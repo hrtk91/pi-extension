@@ -47,6 +47,30 @@ const deferred = () => {
   assert.ok(state.applyAtBoundary({ sessionId: "s1", branchId: "b1" }));
 }
 
+// Too little new history after a previous compaction has no eligible prefix; the boundary advances once enough turns arrive.
+{
+  const freshState = new BackgroundCompactionState();
+  const singleTurn = freshState.observe(base({ turns: turns(1) }), async () => "must not run", { startAtPercent: 0 });
+  assert.equal(singleTurn.reason, "no-eligible-prefix", "a single fresh turn must remain untouched");
+
+  const state = new BackgroundCompactionState();
+  const noPrefix = state.observe(base({ turns: turns(21), summarizedThrough: 80 }), async () => "must not run", { startAtPercent: 0 });
+  assert.equal(noPrefix.started, false);
+  assert.equal(noPrefix.reason, "no-eligible-prefix");
+  assert.equal(state.status, "idle");
+
+  const next = state.observe(base({ turns: turns(22), summarizedThrough: 80 }), async (snapshot) => {
+    assert.equal(snapshot.turnsToSummarize.length, 1);
+    return "summary of turn 81";
+  }, { startAtPercent: 0 });
+  assert.equal(next.started, true);
+  assert.equal(next.plan.fromTurn, 81);
+  assert.equal(next.plan.throughTurn, 81);
+  assert.equal(next.snapshot.firstKeptEntryId, "e2");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(state.status, "ready");
+}
+
 // Rolling percentage applies to lifetime turns after a prior summary: 80 already summarized + 100 live -> summarize 64, keep 36.
 {
   const state = new BackgroundCompactionState();
@@ -82,4 +106,4 @@ for (const summarize of [async () => { throw new Error("fake provider failure");
   assert.equal(state.lastResult.status, "failed");
 }
 
-console.log("PASS: async non-blocking snapshot, 50% threshold, 80/20 cut, one-shot apply, stale discard, and failure fallback");
+console.log("PASS: async snapshot/apply, 50% threshold, 80/20 retention, no-eligible-prefix boundaries, stale discard, and failure fallback");

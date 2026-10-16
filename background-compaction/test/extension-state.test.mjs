@@ -183,6 +183,60 @@ const registerOnHarness = (h, options = {}) => registerBackgroundCompaction({
   assert.ok(h.notifications.some(({ message }) => message.includes("summary is ready")), "manual command reports when the summary is ready");
 }
 
+// Manual compaction refuses to start while busy or before a completed assistant reply exists.
+{
+  const h = createHarness({ contextTokens: 100 });
+  for (let i = 1; i <= 2; i++) h.addTurn(i);
+  let summarizeCalls = 0;
+  const state = registerOnHarness(h, { summarizeOverride: async () => { summarizeCalls++; return "unused"; } });
+  h.ctx.isIdle = () => false;
+  await h.commands.get("bgcompact").handler("", h.ctx);
+  assert.equal(state.status, "idle");
+  assert.ok(h.notifications.some(({ message }) => message.includes("Wait for the current assistant reply to finish")));
+  assert.equal(summarizeCalls, 0);
+
+  h.ctx.isIdle = () => true;
+  h.projected.pop();
+  await h.commands.get("bgcompact").handler("", h.ctx);
+  assert.equal(state.status, "idle");
+  assert.ok(h.notifications.some(({ message }) => message.includes("There is no completed assistant reply")));
+  assert.equal(summarizeCalls, 0);
+}
+
+// Manual compaction reports when the retention policy leaves no prefix, then succeeds after a new turn makes one eligible.
+{
+  const h = createHarness({ contextTokens: 100 });
+  for (let i = 1; i <= 21; i++) h.addTurn(i);
+  h.entries.unshift({
+    type: "compaction", id: "prior-background-compaction", parentId: null, summary: "summary through turn 80",
+    details: { strategy: "background-turn-percent-v1", summarizedThrough: 80 },
+  });
+  h.ctx.model = { provider: "test-provider", id: "active-model", maxTokens: 4096 };
+  const gate = deferred();
+  const summarized = [];
+  const state = registerOnHarness(h, {
+    summarizeOverride: (snapshot) => { summarized.push(snapshot); return gate.promise; },
+  });
+
+  await h.commands.get("bgcompact").handler("", h.ctx);
+  assert.equal(state.status, "idle", "manual invocation must not bypass the retained-recent-turn policy");
+  assert.equal(summarized.length, 0, "summarizer must not run without an eligible prefix");
+  assert.ok(h.notifications.some(({ message }) => message.includes("直近 20% を残すと要約対象がありません")));
+
+  h.addTurn(22);
+  await h.commands.get("bgcompact").handler("", h.ctx);
+  assert.equal(state.status, "summarizing");
+  await Promise.resolve();
+  assert.equal(summarized.length, 1);
+  assert.equal(summarized[0].turnsToSummarize.length, 1);
+  assert.equal(summarized[0].fromTurn, 81);
+  assert.equal(summarized[0].throughTurn, 81);
+  gate.resolve("summary of turn 81");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(state.status, "ready");
+  state.cancel("test-cleanup");
+}
+
 // A standard compaction after the saved snapshot still invalidates it safely.
 {
   const h = createHarness({ contextTokens: 100 });
@@ -332,4 +386,4 @@ const registerOnHarness = (h, options = {}) => registerBackgroundCompaction({
   for (const name of ["bgcompact", "bgcompact-status", "bgcompact-probe", "bgcompact-selftest"]) assert.ok(debug.has(name));
 }
 
-console.log("PASS: automatic/manual compaction, spinner lifecycle, safe apply/fallback, model preferences and overrides, and debug-only diagnostics");
+console.log("PASS: automatic/manual compaction, manual safe guards and retention warnings, spinner lifecycle, model preferences/overrides, and debug-only diagnostics");

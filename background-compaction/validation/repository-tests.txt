@@ -1,18 +1,18 @@
-# Repository tests after adding live model preferences
+# Repository tests after improving retention-boundary coverage
 $ npm test
 
 
 > test
 > node --test background-compaction/test/*.test.mjs
 
-PASS: async non-blocking snapshot, 50% threshold, 80/20 cut, one-shot apply, stale discard, and failure fallback
-✔ background-compaction/test/background-state.test.mjs (50.375132ms)
-PASS: automatic/manual compaction, spinner lifecycle, safe apply/fallback, model preferences and overrides, and debug-only diagnostics
-✔ background-compaction/test/extension-state.test.mjs (517.944505ms)
+PASS: async snapshot/apply, 50% threshold, 80/20 retention, no-eligible-prefix boundaries, stale discard, and failure fallback
+✔ background-compaction/test/background-state.test.mjs (58.887585ms)
+PASS: automatic/manual compaction, manual safe guards and retention warnings, spinner lifecycle, model preferences/overrides, and debug-only diagnostics
+✔ background-compaction/test/extension-state.test.mjs (503.357858ms)
 PASS: install/load/uninstall; /bgcompact stays visible while diagnostics require PI_BGCOMPACT_DEBUG=1
-✔ background-compaction/test/pi-extension-load.test.mjs (1253.60829ms)
+✔ background-compaction/test/pi-extension-load.test.mjs (1278.513547ms)
 PASS: background summary system and initial/update prompts exactly match the installed Pi native compaction prompts
-✔ background-compaction/test/standard-prompt-parity.test.mjs (62.993868ms)
+✔ background-compaction/test/standard-prompt-parity.test.mjs (66.736556ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 4
@@ -20,4 +20,4 @@ PASS: background summary system and initial/update prompts exactly match the ins
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1275.660914
+ℹ duration_ms 1298.62382

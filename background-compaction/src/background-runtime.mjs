@@ -460,7 +460,11 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
       }
       const result = state.observe(snapshot, summarize, { ...settings, startAtPercent: 0 });
       if (!result.started) {
-        ctx.ui.notify(`Background compaction did not start (${result.reason})`, "warning");
+        if (result.reason === "no-eligible-prefix") {
+          ctx.ui.notify(`現在の会話量では、直近 ${settings.keepRecentPercent ?? 20}% を残すと要約対象がありません。会話を続けてから /bgcompact を再実行してください。`, "warning");
+        } else {
+          ctx.ui.notify(`Background compaction did not start (${result.reason})`, "warning");
+        }
         return;
       }
       state._snapshotForAdapter = result.snapshot;
