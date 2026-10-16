@@ -191,16 +191,30 @@ const deferred = () => {
   assert.equal(state.status, "idle", "manual compaction must not reuse a snapshot across standard compaction");
 }
 
-// A production model allowlist must leave every other provider on Pi's native compaction path.
+// Without an explicit allowlist, background compaction uses whichever Pi model is selected.
 {
   const h = createHarness();
   for (let i = 1; i <= 100; i++) h.addTurn(i);
+  h.ctx.model = { provider: "llamacpp", id: "fake-model" };
+  const state = registerBackgroundCompaction({
+    on(name, handler) { const list = h.handlers.get(name) ?? []; list.push(handler); h.handlers.set(name, list); },
+    registerCommand(name, definition) { h.commands.set(name, definition); },
+  }, { summarizeOverride: async () => "unused" });
+  h.handlers.get("turn_end").at(-1)(h.event(), h.ctx);
+  assert.equal(state.status, "summarizing", "any selected model can start a background summary by default");
+}
+
+// An explicit custom allowlist remains available to users who want one.
+{
+  const h = createHarness();
+  for (let i = 1; i <= 100; i++) h.addTurn(i);
+  h.ctx.model = { provider: "anthropic", id: "other-model" };
   const state = registerBackgroundCompaction({
     on(name, handler) { const list = h.handlers.get(name) ?? []; list.push(handler); h.handlers.set(name, list); },
     registerCommand(name, definition) { h.commands.set(name, definition); },
   }, { summarizeOverride: async () => "unused", settings: { allowedModels: ["openai-codex/gpt-6-luna"] } });
   h.handlers.get("turn_end").at(-1)(h.event(), h.ctx);
-  assert.equal(state.status, "idle", "non-allowlisted or unavailable models must not start a background summary");
+  assert.equal(state.status, "idle", "a caller-supplied allowlist still restricts models when configured");
 }
 
 // Diagnostic commands are registered only with the explicit debug flag; /bgcompact remains user-facing.
@@ -219,4 +233,4 @@ const deferred = () => {
   for (const name of ["bgcompact", "bgcompact-status", "bgcompact-probe", "bgcompact-selftest"]) assert.ok(debug.has(name));
 }
 
-console.log("PASS: automatic/manual compaction, spinner lifecycle, safe apply/fallback, allowlist, and debug-only diagnostics");
+console.log("PASS: automatic/manual compaction, spinner lifecycle, safe apply/fallback, model selection, and debug-only diagnostics");

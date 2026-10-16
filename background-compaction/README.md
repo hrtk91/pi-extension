@@ -1,44 +1,58 @@
-# Background compaction
+# バックグラウンド圧縮
 
-A Pi extension that asynchronously summarizes older user-turn spans while leaving Pi's native compaction as the fallback.
+Pi の標準圧縮をフォールバックとして残しつつ、古い会話を非同期で要約する拡張機能です。要約中も通常の会話を続けられます。
 
-- `src/`: runtime modules copied into Pi's extension directory.
-- `test/`: unit, prompt-parity, and isolated installer/load tests.
-- `validation/`: effectiveness report, aggregate campaign measurements, and test results.
+- `src/`：Pi の拡張機能ディレクトリにインストールされる実行ファイル
+- `test/`：ユニットテスト、プロンプト一致確認、インストール・読み込みテスト
+- `validation/`：効果測定の概要、集計結果、テスト結果
 
-## Install
+## インストール
 
-From this directory:
+このディレクトリで実行します。
 
 ```sh
 ./install.sh
 ```
 
-The script installs runtime files into `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/background-compaction`, updates that agent directory's `settings.json`, and saves a rollback copy under `backups/background-compaction/`. Pi's `PI_CODING_AGENT_DIR` is the supported agent-directory override; it defaults to `~/.pi/agent`.
+実行ファイルを `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/background-compaction` にコピーし、エージェント用ディレクトリの `settings.json` を更新します。変更前のファイルは `backups/background-compaction/` に保存されます。
 
-To uninstall while preserving the installed copy in a backup:
+`PI_CODING_AGENT_DIR` を設定すると、インストール先を変更できます。既定値は `~/.pi/agent` です。
+
+アンインストールする場合も、インストール済みファイルはバックアップに残ります。
 
 ```sh
 ./install.sh --uninstall
 ```
 
-## Production behavior
+## 動作
 
-- Allowed model: `openai-codex/gpt-6-luna` only; other models use Pi native compaction.
-- Trigger: 50% of the advertised context window.
-- Retention: newest 20% of user turns; at most 80 turns per summary batch.
-- Summary request: Pi's native system prompt, initial/update prompt templates, serializer, and file-list format.
-- Output budget: 80% of Pi's default 16,384-token reserve; summary timeout: 30 seconds.
-- A standard-compaction event cancels/discards pending background work and proceeds through Pi's native path.
+- 特定のモデルには固定していません。Pi で選択中のモデルを要約にも使います。モデルやプロバイダーの設定、利用可能な出力長などにより、要約できない場合があります。
+- コンテキストウィンドウの使用量が 50% に達すると、自動で要約を開始します。
+- ユーザーの直近 20% のターンを残し、1 回につき最大 80 ターンを要約します。
+- 要約には Pi 標準のシステムプロンプト、要約用テンプレート、シリアライザー、ファイル一覧の形式を使います。
+- 出力上限は Pi の既定の予約トークン数（16,384）の 80% です。要約は 30 秒でタイムアウトします。
+- Pi 標準の圧縮が始まった場合、進行中のバックグラウンド要約を中止し、標準の圧縮に切り替えます。
 
-While a summary request is running in Pi's interactive TUI, an animated footer status shows the turn range and elapsed seconds. It clears as soon as summarization completes or is cancelled; there is no lingering ready/idle indicator. In non-TUI modes, the existing start notification is used instead. Run `/bgcompact` to manually start the same background summarizer below the automatic 50% threshold. It rebuilds the current conversation projection from Pi's session manager, so it also works immediately after resuming a session; it only starts while Pi is idle and the latest projected message is an assistant reply. The command always notifies when work starts and when a summary is ready; results apply at a later safe turn boundary and remain restricted to the configured model allowlist. Diagnostic commands (`/bgcompact-status`, `/bgcompact-probe`, `/bgcompact-selftest`) are registered only when Pi starts with `PI_BGCOMPACT_DEBUG=1`, e.g. `PI_BGCOMPACT_DEBUG=1 pi`. The provider probe is restricted to the configured model allowlist.
+TUI では要約中の対象ターンと経過時間をフッターの状態表示に設定し、完了または中止すると消します。TUI 以外で自動要約を開始した場合は開始通知を表示します。
 
-## Validation
+`/bgcompact` を使うと、自動開始の 50% しきい値を待たずに要約を始められます。Pi がアイドル状態で、直近のアシスタント応答がある場合に実行できます。セッションを再開した直後にも使えます。要約ができた後、安全に適用できる次のターン境界で会話に反映します。手動実行では、開始時と要約の準備完了時に通知します。
 
-From the repository root:
+診断コマンド（`/bgcompact-status`、`/bgcompact-probe`、`/bgcompact-selftest`）は、Pi の起動時に `PI_BGCOMPACT_DEBUG=1` を設定した場合だけ使えます。
+
+```sh
+PI_BGCOMPACT_DEBUG=1 pi
+```
+
+プロバイダーの接続テストも、Pi で選択中のモデルを使います。
+
+## テストと検証
+
+リポジトリのルートで実行します。
 
 ```sh
 npm test
 ```
 
-Tests cover prompt parity with the installed Pi version, automatic and manual starts, threshold/planning/state transitions, cancellation/fallback, model allowlisting, debug-only command visibility, and an isolated install/load/uninstall smoke test. The smoke test makes no model requests. Exploratory effectiveness measurements and summarized generated-app test results are in [`validation/`](validation/). Raw per-run state, notification logs, manifests, and machine-local paths are intentionally kept out of the repository.
+Pi 標準のプロンプトとの一致、自動・手動の開始条件、要約範囲、キャンセルとフォールバック、モデルの選択、診断コマンドの表示制御、インストール・読み込み・アンインストールをテストします。スモークテストからモデルへのリクエストは送信しません。
+
+効果測定は `gpt-6-luna` で行った探索的なもので、他のモデルでの性能や一般的な優位性を示すものではありません。集計結果と生成アプリのテスト結果は [`validation/`](validation/) にあります。実行ごとの内部状態、通知ログ、一時ディレクトリのパスはリポジトリに含めていません。

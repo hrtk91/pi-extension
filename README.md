@@ -1,21 +1,33 @@
-# Pi extensions
+# Pi 拡張機能
 
-This repository holds Pi extensions and their self-contained validation records.
+Pi 向けの拡張機能と、動作確認・効果測定の記録をまとめた個人用リポジトリです。
 
-## Background compaction
+## 拡張機能一覧
 
-Implementation, `install.sh`, tests, and effectiveness artifacts are all under [`background-compaction/`](background-compaction/).
+| 拡張機能 | 概要 | 詳細 |
+|---|---|---|
+| [`background-compaction`](background-compaction/) | 会話を続けながら古いターンを非同期で要約します。手動実行は `/bgcompact`。Pi で選択中のモデルを使います。 | [README](background-compaction/README.md) |
 
-Run validation from this repository:
+## テスト
+
+リポジトリのルートで実行します。
 
 ```sh
 npm test
 ```
 
-Install or update into Pi's agent directory (`$PI_CODING_AGENT_DIR`, default `~/.pi/agent`):
+## インストール
+
+`background-compaction` を Pi のエージェント用ディレクトリ（既定値：`~/.pi/agent`）にインストールまたは更新します。
 
 ```sh
 ./background-compaction/install.sh
 ```
 
-The installer copies only runtime files to `extensions/background-compaction`, updates the Pi settings entry, and backs up the previous settings/extension under the agent directory's `backups/background-compaction/`. Use `./background-compaction/install.sh --uninstall` to remove the settings entry and move the installed copy into a backup.
+インストーラーは実行に必要なファイルだけを拡張機能ディレクトリへコピーし、Pi の設定を更新します。変更前の設定と拡張機能は、エージェント用ディレクトリの `backups/background-compaction/` に保存されます。
+
+アンインストールする場合は、次を実行します。インストール済みのファイルはバックアップに移動します。
+
+```sh
+./background-compaction/install.sh --uninstall
+```
