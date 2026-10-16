@@ -1,23 +1,27 @@
-# Repository tests after improving retention-boundary coverage
+# Repository tests with named retention-boundary regression cases
 $ npm test
 
 
 > test
 > node --test background-compaction/test/*.test.mjs
 
-PASS: async snapshot/apply, 50% threshold, 80/20 retention, no-eligible-prefix boundaries, stale discard, and failure fallback
-✔ background-compaction/test/background-state.test.mjs (58.887585ms)
-PASS: automatic/manual compaction, manual safe guards and retention warnings, spinner lifecycle, model preferences/overrides, and debug-only diagnostics
-✔ background-compaction/test/extension-state.test.mjs (503.357858ms)
+PASS: async snapshot/apply, 50% threshold, 80/20 retention, stale discard, and failure fallback
+✔ background-compaction/test/background-state.test.mjs (55.242141ms)
+PASS: automatic/manual compaction, spinner lifecycle, safe apply/fallback, model preferences/overrides, and debug-only diagnostics
+✔ background-compaction/test/extension-state.test.mjs (522.406608ms)
 PASS: install/load/uninstall; /bgcompact stays visible while diagnostics require PI_BGCOMPACT_DEBUG=1
-✔ background-compaction/test/pi-extension-load.test.mjs (1278.513547ms)
+✔ background-compaction/test/pi-extension-load.test.mjs (1304.931704ms)
+✔ a fresh one-turn conversation has no prefix while preserving the recent-turn policy (3.192289ms)
+✔ after turn 80 was summarized, 21 kept turns have no prefix and turn 22 unlocks only turn 81 (5.199114ms)
+✔ /bgcompact explains no eligible prefix, then starts when a new turn makes one eligible (4.851288ms)
+✔ /bgcompact refuses while Pi is busy or before an assistant reply exists (0.7369ms)
 PASS: background summary system and initial/update prompts exactly match the installed Pi native compaction prompts
-✔ background-compaction/test/standard-prompt-parity.test.mjs (66.736556ms)
-ℹ tests 4
+✔ background-compaction/test/standard-prompt-parity.test.mjs (80.278102ms)
+ℹ tests 8
 ℹ suites 0
-ℹ pass 4
+ℹ pass 8
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1298.62382
+ℹ duration_ms 1325.47349
