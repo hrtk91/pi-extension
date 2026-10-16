@@ -1,0 +1,20 @@
+{
+  "model": "openai-codex/gpt-6-luna",
+  "campaigns": [
+    {
+      "pair": 1,
+      "background": { "campaignId": "ec-luna-2026-10-16T05-37-17.070Z-f3ec03", "testFile": "test/app.test.js", "passed": 4, "failed": 0 },
+      "native": { "campaignId": "ec-luna-2026-10-16T05-39-55.715Z-8b0ad5", "testFile": "script.test.js", "passed": 4, "failed": 0 }
+    },
+    {
+      "pair": 2,
+      "background": { "campaignId": "ec-luna-2026-10-16T06-50-20.470Z-4907c1", "testFile": "test/storefront.test.js", "passed": 4, "failed": 0, "verification": "direct run after harness reporter fix" },
+      "native": { "campaignId": "ec-luna-2026-10-16T06-43-52.887Z-718fd9", "testFile": "app.test.js", "passed": 5, "failed": 0, "verification": "direct run after harness filename fix" }
+    },
+    {
+      "pair": 3,
+      "background": { "campaignId": "ec-luna-2026-10-16T06-53-54.950Z-8aebd7", "testFile": "test/storefront.test.js", "passed": 4, "failed": 0 },
+      "native": { "campaignId": "ec-luna-2026-10-16T06-58-47.897Z-26a259", "testFile": "store.test.js", "passed": 4, "failed": 0 }
+    }
+  ]
+}

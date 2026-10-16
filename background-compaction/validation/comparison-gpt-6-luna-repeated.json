@@ -1,0 +1,399 @@
+{
+  "experiment": "gpt-6-luna background vs Pi native compaction — repeated",
+  "createdAt": "2026-10-16T07:05:32.334Z",
+  "conditions": {
+    "model": "openai-codex/gpt-6-luna",
+    "advertisedContextWindow": 24576,
+    "maxOutput": 8192,
+    "reserveTokens": 4096,
+    "keepRecentTokens": 2000,
+    "taskPrompts": "same three prompts per run; clean temporary workdirs",
+    "promptParity": "background system + initial/update summary prompts byte-match installed Pi native compaction; parity test passes",
+    "pairsAttempted": 3,
+    "notes": [
+      "Token totals sum per-request prompt + completion usage; cacheReadTokens is a subset of promptTokens, not additive.",
+      "Estimated cost is based on Pi model catalog rates, not an invoice.",
+      "Generated work and model call counts varied across runs; n=2 strict matched pairs is still a small exploratory sample.",
+      "Pair 3 background run applied one background summary, then a second background summary was pending when Pi standard compaction ran twice. This is a hybrid/fallback arm and is excluded from strict averages.",
+      "Two earlier app-test harness checks used incorrect filename/reporter assumptions; the actual generated tests were run directly and passed before the campaign resumed."
+    ]
+  },
+  "pairs": {
+    "pair1": {
+      "background": {
+        "campaignId": "ec-luna-2026-10-16T05-37-17.070Z-f3ec03",
+        "status": "complete",
+        "wallMs": 133587,
+        "assistantMessages": 31,
+        "promptTokens": 346398,
+        "completionTokens": 15585,
+        "totalTokens": 361983,
+        "cacheReadTokens": 274432,
+        "summaryTokens": 9953,
+        "summaryPromptTokens": 9584,
+        "summaryCompletionTokens": 369,
+        "compactions": [
+          {
+            "mode": "background",
+            "status": "applied",
+            "startedAt": "2026-10-16T05:38:31.456Z",
+            "appliedAt": "2026-10-16T05:38:39.482Z",
+            "summaryDurationMs": 5366,
+            "usage": {
+              "input": 9584,
+              "output": 369
+            },
+            "message": "background compaction applied through turn 2; summaryMs=5366; inputTokens=9584; outputTokens=369",
+            "reason": null
+          }
+        ],
+        "backgroundAppliedCount": 1,
+        "nativeFallbackCount": 0,
+        "estimatedCostUsd": 0.01773342,
+        "allPhasesSettled": true,
+        "postCompactionContinuation": true,
+        "appTests": {
+          "passed": 4,
+          "failed": 0
+        }
+      },
+      "native": {
+        "campaignId": "ec-luna-2026-10-16T05-39-55.715Z-8b0ad5",
+        "status": "complete",
+        "wallMs": 168077,
+        "assistantMessages": 39,
+        "promptTokens": 467671,
+        "completionTokens": 15296,
+        "totalTokens": 482967,
+        "cacheReadTokens": 388352,
+        "summaryTokens": 15680,
+        "summaryPromptTokens": 15094,
+        "summaryCompletionTokens": 586,
+        "compactions": [
+          {
+            "mode": "native",
+            "status": "applied",
+            "startedAt": "2026-10-16T05:41:52.203Z",
+            "appliedAt": "2026-10-16T05:42:00.179Z",
+            "summaryDurationMs": null,
+            "usage": {
+              "input": 15094,
+              "output": 586,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "reasoning": 0,
+              "totalTokens": 15680,
+              "cost": {
+                "input": 0.0015094000000000002,
+                "output": 0.00029299999999999997,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0.0018024000000000002
+              }
+            },
+            "message": null,
+            "reason": "threshold"
+          }
+        ],
+        "backgroundAppliedCount": 0,
+        "estimatedCostUsd": 0.019463420000000002,
+        "allPhasesSettled": true,
+        "postCompactionContinuation": true,
+        "appTests": {
+          "passed": 4,
+          "failed": 0
+        },
+        "nativeCompactionCount": 1
+      },
+      "strictPair": true
+    },
+    "pair2": {
+      "background": {
+        "campaignId": "ec-luna-2026-10-16T06-50-20.470Z-4907c1",
+        "status": "complete",
+        "wallMs": 148404,
+        "assistantMessages": 39,
+        "promptTokens": 446802,
+        "completionTokens": 14953,
+        "totalTokens": 461755,
+        "cacheReadTokens": 390784,
+        "summaryTokens": 9284,
+        "summaryPromptTokens": 8916,
+        "summaryCompletionTokens": 368,
+        "compactions": [
+          {
+            "mode": "background",
+            "status": "applied",
+            "startedAt": "2026-10-16T06:51:34.038Z",
+            "appliedAt": "2026-10-16T06:51:43.443Z",
+            "summaryDurationMs": 4938,
+            "usage": {
+              "input": 8916,
+              "output": 368
+            },
+            "message": "background compaction applied through turn 2; summaryMs=4938; inputTokens=8916; outputTokens=368",
+            "reason": null
+          }
+        ],
+        "backgroundAppliedCount": 1,
+        "nativeFallbackCount": 0,
+        "estimatedCostUsd": 0.016986139999999997,
+        "allPhasesSettled": true,
+        "postCompactionContinuation": true,
+        "appTests": {
+          "passed": 4,
+          "failed": 0
+        }
+      },
+      "native": {
+        "campaignId": "ec-luna-2026-10-16T06-43-52.887Z-718fd9",
+        "status": "complete",
+        "wallMs": 258266,
+        "assistantMessages": 38,
+        "promptTokens": 474443,
+        "completionTokens": 14485,
+        "totalTokens": 488928,
+        "cacheReadTokens": 410368,
+        "summaryTokens": 13507,
+        "summaryPromptTokens": 13004,
+        "summaryCompletionTokens": 503,
+        "compactions": [
+          {
+            "mode": "native",
+            "status": "applied",
+            "startedAt": "2026-10-16T06:46:17.085Z",
+            "appliedAt": "2026-10-16T06:46:27.542Z",
+            "summaryDurationMs": null,
+            "usage": {
+              "input": 13004,
+              "output": 503,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "reasoning": 0,
+              "totalTokens": 13507,
+              "cost": {
+                "input": 0.0013004000000000002,
+                "output": 0.0002515,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0.0015519000000000002
+              }
+            },
+            "message": null,
+            "reason": "threshold"
+          }
+        ],
+        "backgroundAppliedCount": 0,
+        "estimatedCostUsd": 0.01775368,
+        "allPhasesSettled": true,
+        "postCompactionContinuation": true,
+        "appTests": {
+          "passed": 5,
+          "failed": 0
+        },
+        "nativeCompactionCount": 1
+      },
+      "strictPair": true
+    },
+    "pair3": {
+      "background": {
+        "campaignId": "ec-luna-2026-10-16T06-53-54.950Z-8aebd7",
+        "status": "complete",
+        "wallMs": 292771,
+        "assistantMessages": 44,
+        "promptTokens": 463873,
+        "completionTokens": 16381,
+        "totalTokens": 480254,
+        "cacheReadTokens": 353536,
+        "summaryTokens": 24361,
+        "summaryPromptTokens": 22633,
+        "summaryCompletionTokens": 1728,
+        "compactions": [
+          {
+            "mode": "background",
+            "status": "applied",
+            "startedAt": "2026-10-16T06:55:45.499Z",
+            "appliedAt": "2026-10-16T06:55:50.259Z",
+            "summaryDurationMs": 4400,
+            "usage": {
+              "input": 6366,
+              "output": 288
+            },
+            "message": "background compaction applied through turn 1; summaryMs=4400; inputTokens=6366; outputTokens=288",
+            "reason": null
+          },
+          {
+            "mode": "background",
+            "status": "started",
+            "startedAt": "2026-10-16T06:56:07.447Z",
+            "summaryDurationMs": null,
+            "usage": null,
+            "message": "background compaction started at 51%; summarizing turns 2-2",
+            "reason": null
+          },
+          {
+            "mode": "native",
+            "status": "applied",
+            "startedAt": "2026-10-16T06:56:30.644Z",
+            "appliedAt": "2026-10-16T06:56:39.183Z",
+            "summaryDurationMs": null,
+            "usage": {
+              "input": 8912,
+              "output": 655,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "reasoning": 0,
+              "totalTokens": 9567,
+              "cost": {
+                "input": 0.0008912,
+                "output": 0.0003275,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0.0012187
+              }
+            },
+            "message": null,
+            "reason": "threshold"
+          },
+          {
+            "mode": "native",
+            "status": "applied",
+            "startedAt": "2026-10-16T06:58:14.235Z",
+            "appliedAt": "2026-10-16T06:58:21.211Z",
+            "summaryDurationMs": null,
+            "usage": {
+              "input": 7355,
+              "output": 785,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "reasoning": 0,
+              "totalTokens": 8140,
+              "cost": {
+                "input": 0.0007355,
+                "output": 0.0003925,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0.001128
+              }
+            },
+            "message": null,
+            "reason": "threshold"
+          }
+        ],
+        "backgroundAppliedCount": 1,
+        "nativeFallbackCount": 2,
+        "estimatedCostUsd": 0.02275956,
+        "allPhasesSettled": true,
+        "postCompactionContinuation": true,
+        "appTests": {
+          "passed": 4,
+          "failed": 0
+        }
+      },
+      "native": {
+        "campaignId": "ec-luna-2026-10-16T06-58-47.897Z-26a259",
+        "status": "complete",
+        "wallMs": 265086,
+        "assistantMessages": 33,
+        "promptTokens": 394622,
+        "completionTokens": 17017,
+        "totalTokens": 411639,
+        "cacheReadTokens": 322304,
+        "summaryTokens": 23021,
+        "summaryPromptTokens": 21660,
+        "summaryCompletionTokens": 1361,
+        "compactions": [
+          {
+            "mode": "native",
+            "status": "applied",
+            "startedAt": "2026-10-16T07:01:50.157Z",
+            "appliedAt": "2026-10-16T07:02:01.680Z",
+            "summaryDurationMs": null,
+            "usage": {
+              "input": 13964,
+              "output": 622,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "reasoning": 0,
+              "totalTokens": 14586,
+              "cost": {
+                "input": 0.0013964000000000001,
+                "output": 0.00031099999999999997,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0.0017074
+              }
+            },
+            "message": null,
+            "reason": "threshold"
+          },
+          {
+            "mode": "native",
+            "status": "applied",
+            "startedAt": "2026-10-16T07:02:56.754Z",
+            "appliedAt": "2026-10-16T07:03:05.343Z",
+            "summaryDurationMs": null,
+            "usage": {
+              "input": 7696,
+              "output": 739,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "reasoning": 0,
+              "totalTokens": 8435,
+              "cost": {
+                "input": 0.0007696000000000001,
+                "output": 0.0003695,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0.0011391
+              }
+            },
+            "message": null,
+            "reason": "threshold"
+          }
+        ],
+        "backgroundAppliedCount": 0,
+        "estimatedCostUsd": 0.01896334,
+        "allPhasesSettled": true,
+        "postCompactionContinuation": true,
+        "appTests": {
+          "passed": 4,
+          "failed": 0
+        },
+        "nativeCompactionCount": 2
+      },
+      "strictPair": false
+    }
+  },
+  "strictAggregate": {
+    "strictCleanPairs": 2,
+    "wallMs": {
+      "backgroundMean": 140995.5,
+      "nativeMean": 213171.5
+    },
+    "totalTokens": {
+      "backgroundMean": 411869,
+      "nativeMean": 485947.5
+    },
+    "summaryTokens": {
+      "backgroundMean": 9618.5,
+      "nativeMean": 14593.5
+    },
+    "estimatedCostUsd": {
+      "backgroundMean": 0.01735978,
+      "nativeMean": 0.01860855
+    },
+    "backgroundFirstApplyLatencyMsMean": 8715.5,
+    "nativeCompactionLatencyMsMean": 9216.5,
+    "differences": {
+      "wallMs": -72176,
+      "wallPercentVsNative": -33.85818460722939,
+      "totalTokens": -74078.5,
+      "totalTokenPercentVsNative": -15.244136455069734,
+      "summaryTokens": -4975,
+      "summaryPercentVsNative": -34.090519751944356,
+      "estimatedCostUsd": -0.0012487700000000032,
+      "costPercentVsNative": -6.710732432134703
+    }
+  }
+}

@@ -1,0 +1,28 @@
+# Node.js and generated test output
+node_modules/
+coverage/
+*.log
+npm-debug.log*
+
+# Local configuration, credentials, and editor state
+.env
+.env.*
+!.env.example
+.pi/
+.vscode/
+.idea/
+
+# OS/editor artifacts
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+
+# Local Pi installs and backups
+backups/
+
+# Raw experiment output is archived outside this repository
+background-compaction/validation/campaigns/
+background-compaction/validation/manifests/
+background-compaction/validation/app-tests/
