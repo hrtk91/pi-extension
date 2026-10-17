@@ -348,7 +348,7 @@ export function registerBackgroundCompaction(pi, { summarizeOverride, serializeM
         summaryStartedAt, summaryCompletedAt: new Date().toISOString(), summaryDurationMs: Date.now() - startedAtMs,
       };
     })();
-    const timeoutMs = settings.summaryTimeoutMs ?? 30000;
+    const timeoutMs = settings.summaryTimeoutMs ?? 300000;
     let onAbort;
     const timedOut = new Promise((_, reject) => {
       timeout = setTimeout(() => {
