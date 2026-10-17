@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test background-compaction/test/*.test.mjs"
+    "test": "node --test background-compaction/test/*.test.mjs goal/test/*.test.mjs"
   }
 }
