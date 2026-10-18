@@ -1,0 +1,27 @@
+# Dashboard live installation verification
+
+Updated the active Pi agent directory from `dashboard/install.sh`:
+
+```text
+Installed dashboard to $AGENT_DIR/extensions/dashboard
+Backup: $AGENT_DIR/backups/dashboard/<installation-backup>
+```
+
+Checks against the installed environment:
+
+```text
+PASS: settings.json references $AGENT_DIR/extensions/dashboard/extension.mjs
+PASS: non-extension settings values are unchanged
+PASS: previous installed dashboard is backed up
+PASS: extension.mjs, session-stats.mjs, history-store.mjs, stats-tabs.mjs, and README.md match repository sources
+PASS: dashboard-stats.json is outside the managed dashboard directory, mode 0600, and survives install/uninstall tests
+PASS: cache has 63 session-file fingerprints and 4,022 response samples; no message/content fields are stored
+```
+
+A fresh Pi RPC process returned `/stats` in `get_commands`, invoked `/stats`, and received its model report:
+
+```json
+{"piExit":0,"statsRegistered":true,"modelStatsShown":true}
+```
+
+The RPC check ran with `--no-session`, so it did not append a test conversation to the user's history.
